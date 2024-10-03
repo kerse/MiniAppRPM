@@ -58,15 +58,11 @@
         controls.update();
 
         let avatar; // Переменная для модели
-        let morphTargets = []; // Массив морф-таргетов
-        let eyeMorphTargets = []; // Морф-таргеты для глаз
-        let morphIndex = 0; // Текущий индекс морф-таргета
-        let morphDirection = 1; // Направление изменения морф-таргета
-        let headSwingAngle = 0; // Угол для качания головой
-        let swingDirection = 1; // Направление качания головы
+        let mixer; // Для анимаций
 
         // Ссылка на модель аватара
         const avatarUrl = 'https://models.readyplayer.me/6557739b5f919c5b8afb5b00.glb';
+        const idleAnimationUrl = 'idle_1.glb'; // Путь к анимации idle
 
         // Загрузка модели
         const loader = new THREE.GLTFLoader();
@@ -80,35 +76,41 @@
                     if (node.isMesh) {
                         node.castShadow = true;
                         node.receiveShadow = true;
-
-                        // Проверяем наличие морф-таргетов
-                        if (node.morphTargetInfluences && node.morphTargetInfluences.length > 0) {
-                            morphTargets.push(node);
-
-                            // Поиск морф-таргетов, связанных с глазами (например, "BlinkLeft", "BlinkRight")
-                            if (node.name.toLowerCase().includes('eye') || node.name.toLowerCase().includes('blink')) {
-                                eyeMorphTargets.push(node);
-                            }
-                        }
                     }
                 });
 
                 scene.add(avatar);
 
-                // Если найдены морф-таргеты, запускаем анимацию
-                if (morphTargets.length > 0) {
-                    animateMorphTargets();
-                } else {
-                    console.warn('Морф-таргеты не найдены в модели.');
-                }
-
-                animate();
+                // Загрузка анимации idle
+                loadIdleAnimation();
             },
             undefined,
             function (error) {
                 console.error('Ошибка при загрузке модели:', error);
             }
         );
+
+        // Загрузка idle анимации
+        function loadIdleAnimation() {
+            loader.load(
+                idleAnimationUrl,
+                function (gltf) {
+                    // Инициализация AnimationMixer для работы с анимациями
+                    mixer = new THREE.AnimationMixer(avatar);
+
+                    // Проигрывание idle анимации
+                    const idleAction = mixer.clipAction(gltf.animations[0]);
+                    idleAction.play();
+
+                    // Запуск цикла анимации
+                    animate();
+                },
+                undefined,
+                function (error) {
+                    console.error('Ошибка при загрузке анимации:', error);
+                }
+            );
+        }
 
         // Часы для отслеживания времени анимации
         const clock = new THREE.Clock();
@@ -118,79 +120,11 @@
             requestAnimationFrame(animate);
 
             const delta = clock.getDelta();
-
-            // Анимация качания головой
-            animateHeadSwing(delta);
+            if (mixer) mixer.update(delta); // Обновляем анимацию
 
             controls.update(); // Обновляем контролы
 
             renderer.render(scene, camera);
-        }
-
-        // Функция для анимации морф-таргетов
-        function animateMorphTargets() {
-            const speed = 0.05; // Скорость изменения морф-таргета для плавной анимации
-
-            function updateMorphTargets() {
-                requestAnimationFrame(updateMorphTargets);
-
-                morphTargets.forEach(mesh => {
-                    if (mesh.morphTargetInfluences) {
-                        // Изменяем значение текущего морф-таргета
-                        mesh.morphTargetInfluences[morphIndex] += speed * morphDirection;
-
-                        // Проверяем границы и не допускаем значения больше 1 и меньше 0
-                        if (mesh.morphTargetInfluences[morphIndex] > 1) {
-                            mesh.morphTargetInfluences[morphIndex] = 1;
-                            morphDirection = -1;
-                        } else if (mesh.morphTargetInfluences[morphIndex] < 0) {
-                            mesh.morphTargetInfluences[morphIndex] = 0;
-                            morphDirection = 1;
-                            // Переходим к случайному морф-таргету для разнообразия
-                            morphIndex = Math.floor(Math.random() * mesh.morphTargetInfluences.length);
-                        }
-                    }
-                });
-
-                // Анимация подмигивания глаз
-                animateEyeBlink();
-            }
-
-            updateMorphTargets();
-        }
-
-        // Функция для анимации подмигивания глаз
-        function animateEyeBlink() {
-            const blinkSpeed = 0.1; // Скорость подмигивания
-
-            eyeMorphTargets.forEach(mesh => {
-                if (mesh.morphTargetInfluences) {
-                    // Подмигивание - морф-таргеты двигаются от 0 до 1 и обратно
-                    mesh.morphTargetInfluences[0] += blinkSpeed * morphDirection;
-
-                    if (mesh.morphTargetInfluences[0] > 2) {
-                        mesh.morphTargetInfluences[0] = 2;
-                        morphDirection = -2;
-                    } else if (mesh.morphTargetInfluences[0] < 0) {
-                        mesh.morphTargetInfluences[0] = 0;
-                        morphDirection = 2;
-                    }
-                }
-            });
-        }
-
-        // Функция для качания головой
-        function animateHeadSwing(delta) {
-            const swingSpeed = 0.5; // Скорость качания
-            const maxAngle = 0.1; // Максимальный угол качания в радианах (около 5.7 градусов)
-
-            // Качаем голову, двигая аватар по оси Y
-            avatar.rotation.y += swingSpeed * delta * swingDirection;
-
-            // Меняем направление качания, если достигнут максимальный угол
-            if (avatar.rotation.y > maxAngle || avatar.rotation.y < -maxAngle) {
-                swingDirection *= -1;
-            }
         }
 
         // Обработка изменения размера окна
