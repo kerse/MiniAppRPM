@@ -168,12 +168,12 @@
                     // Подмигивание - морф-таргеты двигаются от 0 до 1 и обратно
                     mesh.morphTargetInfluences[0] += blinkSpeed * morphDirection;
 
-                    if (mesh.morphTargetInfluences[0] > 1) {
-                        mesh.morphTargetInfluences[0] = 1;
-                        morphDirection = -1;
+                    if (mesh.morphTargetInfluences[0] > 2) {
+                        mesh.morphTargetInfluences[0] = 2;
+                        morphDirection = -2;
                     } else if (mesh.morphTargetInfluences[0] < 0) {
                         mesh.morphTargetInfluences[0] = 0;
-                        morphDirection = 1;
+                        morphDirection = 2;
                     }
                 }
             });
