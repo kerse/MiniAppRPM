@@ -62,10 +62,13 @@
         let morphIndex = 0; // Текущий индекс морф-таргета
         let morphDirection = 1; // Направление изменения морф-таргета
 
+        // Ссылка на модель аватара
+        const avatarUrl = 'https://models.readyplayer.me/6557739b5f919c5b8afb5b00.glb';
+
         // Загрузка модели
         const loader = new THREE.GLTFLoader();
         loader.load(
-            'https://models.readyplayer.me/6557739b5f919c5b8afb5b00.glb',
+            avatarUrl,
             function (gltf) {
                 avatar = gltf.scene;
 
@@ -115,25 +118,23 @@
 
         // Функция для анимации морф-таргетов
         function animateMorphTargets() {
-            const speed = 0.01; // Скорость изменения морф-таргета
+            const speed = 0.1; // Увеличиваем скорость изменения морф-таргета для более быстрой анимации
 
             function updateMorphTargets() {
                 requestAnimationFrame(updateMorphTargets);
 
                 morphTargets.forEach(mesh => {
                     if (mesh.morphTargetInfluences) {
-                        // Изменяем значение текущего морф-таргета
+                        // Изменяем значение текущего морф-таргета быстрее и разнообразнее
                         mesh.morphTargetInfluences[morphIndex] += speed * morphDirection;
 
                         // Проверяем границы и меняем направление
                         if (mesh.morphTargetInfluences[morphIndex] >= 1) {
-                            mesh.morphTargetInfluences[morphIndex] = 1;
                             morphDirection = -1;
                         } else if (mesh.morphTargetInfluences[morphIndex] <= 0) {
-                            mesh.morphTargetInfluences[morphIndex] = 0;
                             morphDirection = 1;
-                            // Переходим к следующему морф-таргету
-                            morphIndex = (morphIndex + 1) % mesh.morphTargetInfluences.length;
+                            // Переходим к случайному морф-таргету для разнообразия
+                            morphIndex = Math.floor(Math.random() * mesh.morphTargetInfluences.length);
                         }
                     }
                 });
