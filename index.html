@@ -19,63 +19,137 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- Подключаем GLTFLoader для загрузки модели -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-    <!-- Подключаем OrbitControls для управления камерой (опционально) -->
+    <!-- Подключаем OrbitControls для управления камерой -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
 
-    <script>// Инициализация сцены и камеры
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      35, window.innerWidth / window.innerHeight, 0.1, 1000
-    );
-    camera.position.set(0, 1.6, 3); // Позиция камеры
+    <script>
+        // Инициализация сцены и камеры
+        const scene = new THREE.Scene();
 
-    // Инициализация рендерера
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+        // Устанавливаем фон на глубокий фиолетовый цвет
+        scene.background = new THREE.Color(0x4b0082); // Глубокий фиолетовый (индиго)
 
-    // Добавление освещения
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
-    hemiLight.position.set(0, 200, 0);
-    scene.add(hemiLight);
+        const camera = new THREE.PerspectiveCamera(
+            35, window.innerWidth / window.innerHeight, 0.1, 1000
+        );
+        camera.position.set(0, 1.7, 0.55); // Поднимаем камеру немного выше
+        camera.lookAt(0, 1.6, 0); // Смотрим на центр головы
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(0, 200, 100);
-    scene.add(dirLight);
+        // Инициализация рендерера
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // Включаем тени
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
 
-    // Инициализация контролов (опционально)
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1, 0);
-    controls.update();
+        // Добавление стандартного освещения
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+        hemiLight.position.set(0, 200, 0);
+        scene.add(hemiLight);
 
-    // Загрузка модели
-    const loader = new THREE.GLTFLoader();
-    loader.load(
-      'https://models.readyplayer.me/6557739b5f919c5b8afb5b00.glb',
-      function (gltf) {
-        const avatar = gltf.scene;
-        scene.add(avatar);
-        animate();
-      },
-      undefined,
-      function (error) {
-        console.error('Ошибка при загрузке модели:', error);
-      }
-    );
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(0, 200, 100);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
 
-    // Функция анимации
-    function animate() {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    }
+        // Инициализация контролов
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 1.6, 0);
+        controls.update();
 
-    // Обработка изменения размера окна
-    window.addEventListener('resize', function () {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      renderer.setSize(width, height);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    });</script>
+        let avatar; // Переменная для модели
+        let morphTargets = []; // Массив морф-таргетов
+        let morphIndex = 0; // Текущий индекс морф-таргета
+        let morphDirection = 1; // Направление изменения морф-таргета
+
+        // Загрузка модели
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+            'https://models.readyplayer.me/6557739b5f919c5b8afb5b00.glb',
+            function (gltf) {
+                avatar = gltf.scene;
+
+                // Включаем тени для модели
+                avatar.traverse(function (node) {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+
+                        // Проверяем наличие морф-таргетов
+                        if (node.morphTargetInfluences && node.morphTargetInfluences.length > 0) {
+                            morphTargets.push(node);
+                        }
+                    }
+                });
+
+                scene.add(avatar);
+
+                // Если найдены морф-таргеты, запускаем анимацию
+                if (morphTargets.length > 0) {
+                    animateMorphTargets();
+                } else {
+                    console.warn('Морф-таргеты не найдены в модели.');
+                }
+
+                animate();
+            },
+            undefined,
+            function (error) {
+                console.error('Ошибка при загрузке модели:', error);
+            }
+        );
+
+        // Часы для отслеживания времени анимации
+        const clock = new THREE.Clock();
+
+        // Функция анимации
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+
+            controls.update(); // Обновляем контролы
+
+            renderer.render(scene, camera);
+        }
+
+        // Функция для анимации морф-таргетов
+        function animateMorphTargets() {
+            const speed = 0.01; // Скорость изменения морф-таргета
+
+            function updateMorphTargets() {
+                requestAnimationFrame(updateMorphTargets);
+
+                morphTargets.forEach(mesh => {
+                    if (mesh.morphTargetInfluences) {
+                        // Изменяем значение текущего морф-таргета
+                        mesh.morphTargetInfluences[morphIndex] += speed * morphDirection;
+
+                        // Проверяем границы и меняем направление
+                        if (mesh.morphTargetInfluences[morphIndex] >= 1) {
+                            mesh.morphTargetInfluences[morphIndex] = 1;
+                            morphDirection = -1;
+                        } else if (mesh.morphTargetInfluences[morphIndex] <= 0) {
+                            mesh.morphTargetInfluences[morphIndex] = 0;
+                            morphDirection = 1;
+                            // Переходим к следующему морф-таргету
+                            morphIndex = (morphIndex + 1) % mesh.morphTargetInfluences.length;
+                        }
+                    }
+                });
+            }
+
+            updateMorphTargets();
+        }
+
+        // Обработка изменения размера окна
+        window.addEventListener('resize', function () {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            renderer.setSize(width, height);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        });
+    </script>
 </body>
 </html>
