@@ -118,20 +118,22 @@
 
         // Функция для анимации морф-таргетов
         function animateMorphTargets() {
-            const speed = 0.1; // Увеличиваем скорость изменения морф-таргета для более быстрой анимации
+            const speed = 0.05; // Скорость изменения морф-таргета для плавной анимации
 
             function updateMorphTargets() {
                 requestAnimationFrame(updateMorphTargets);
 
                 morphTargets.forEach(mesh => {
                     if (mesh.morphTargetInfluences) {
-                        // Изменяем значение текущего морф-таргета быстрее и разнообразнее
+                        // Изменяем значение текущего морф-таргета
                         mesh.morphTargetInfluences[morphIndex] += speed * morphDirection;
 
-                        // Проверяем границы и меняем направление
-                        if (mesh.morphTargetInfluences[morphIndex] >= 1) {
+                        // Проверяем границы и не допускаем значения больше 1 и меньше 0
+                        if (mesh.morphTargetInfluences[morphIndex] > 1) {
+                            mesh.morphTargetInfluences[morphIndex] = 1;
                             morphDirection = -1;
-                        } else if (mesh.morphTargetInfluences[morphIndex] <= 0) {
+                        } else if (mesh.morphTargetInfluences[morphIndex] < 0) {
+                            mesh.morphTargetInfluences[morphIndex] = 0;
                             morphDirection = 1;
                             // Переходим к случайному морф-таргету для разнообразия
                             morphIndex = Math.floor(Math.random() * mesh.morphTargetInfluences.length);
