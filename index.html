@@ -58,11 +58,10 @@
         controls.update();
 
         let avatar; // Переменная для модели
-        let mixer; // Для анимаций
+        let morphTargets = []; // Массив морф-таргетов (для мимики)
 
         // Ссылка на модель аватара
-        const avatarUrl = 'https://models.readyplayer.me/6557739b5f919c5b8afb5b00.glb';
-        const idleAnimationUrl = 'idle_1.glb'; // Путь к анимации idle
+        const avatarUrl = 'https://models.readyplayer.me/655e3008a0f45855e82ae649.glb';
 
         // Загрузка модели
         const loader = new THREE.GLTFLoader();
@@ -76,13 +75,24 @@
                     if (node.isMesh) {
                         node.castShadow = true;
                         node.receiveShadow = true;
+
+                        // Проверяем наличие морф-таргетов для мимики
+                        if (node.morphTargetInfluences && node.morphTargetInfluences.length > 0) {
+                            morphTargets.push(node);
+                        }
                     }
                 });
 
                 scene.add(avatar);
 
-                // Загрузка анимации idle
-                loadIdleAnimation();
+                // Если найдены морф-таргеты, запускаем анимацию мимики
+                if (morphTargets.length > 0) {
+                    animateMorphTargets();
+                } else {
+                    console.warn('Морф-таргеты не найдены в модели.');
+                }
+
+                animate();
             },
             undefined,
             function (error) {
@@ -90,37 +100,37 @@
             }
         );
 
-        // Загрузка idle анимации
-        function loadIdleAnimation() {
-            loader.load(
-                idleAnimationUrl,
-                function (gltf) {
-                    // Инициализация AnimationMixer для работы с анимациями
-                    mixer = new THREE.AnimationMixer(avatar);
+        // Функция для анимации мимики
+        function animateMorphTargets() {
+            const speed = 0.05; // Скорость изменения морф-таргетов для мимики
 
-                    // Проигрывание idle анимации
-                    const idleAction = mixer.clipAction(gltf.animations[0]);
-                    idleAction.play();
+            function updateMorphTargets() {
+                requestAnimationFrame(updateMorphTargets);
 
-                    // Запуск цикла анимации
-                    animate();
-                },
-                undefined,
-                function (error) {
-                    console.error('Ошибка при загрузке анимации:', error);
-                }
-            );
+                morphTargets.forEach(mesh => {
+                    if (mesh.morphTargetInfluences) {
+                        // Изменение значения морф-таргета для мимики
+                        for (let i = 0; i < mesh.morphTargetInfluences.length; i++) {
+                            mesh.morphTargetInfluences[i] += speed;
+                            if (mesh.morphTargetInfluences[i] > 1) {
+                                mesh.morphTargetInfluences[i] = 0; // Сброс значения для цикличной анимации
+                            }
+                        }
+                    }
+                });
+            }
+
+            updateMorphTargets();
         }
 
         // Часы для отслеживания времени анимации
         const clock = new THREE.Clock();
 
-        // Функция анимации
+        // Основная функция анимации
         function animate() {
             requestAnimationFrame(animate);
 
             const delta = clock.getDelta();
-            if (mixer) mixer.update(delta); // Обновляем анимацию
 
             controls.update(); // Обновляем контролы
 
