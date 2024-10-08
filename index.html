@@ -7,14 +7,37 @@
         body {
             margin: 0;
             overflow: hidden;
+            position: relative;
         }
 
         canvas {
             display: block;
         }
+
+        /* Стили для кнопки */
+        #voiceButton {
+            position: absolute;
+            left: 50%;
+            top: 80%;
+            transform: translate(-50%, -50%);
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+            vertical-align: middle;
+            line-height: 150px; /* Центрирование текста по вертикали */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 <body>
+    <!-- Кнопка для голосового взаимодействия -->
+    <button id="voiceButton">Подключение...</button>
+
     <!-- Подключаем Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- Подключаем GLTFLoader для загрузки модели -->
@@ -145,6 +168,62 @@
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
         });
+
+        // *** Добавляем функционал кнопки и голосового взаимодействия ***
+
+        // Переменная для состояния и кнопки
+        let connectionStatus = 'Подключение...';
+        const voiceButton = document.getElementById('voiceButton');
+        voiceButton.innerText = connectionStatus;
+
+        // Функция для обновления статуса на кнопке
+        function updateStatus(status) {
+            connectionStatus = status;
+            voiceButton.innerText = connectionStatus;
+        }
+
+        // Обработчик события нажатия на кнопку
+        voiceButton.addEventListener('click', () => {
+            // Начинаем голосовое взаимодействие через сервер
+            startVoiceInteraction();
+        });
+
+        // Функция для установления связи с сервером и начала голосового взаимодействия
+        function startVoiceInteraction() {
+            // Обновляем статус
+            updateStatus('Подключаюсь к серверу...');
+
+            // Здесь нужно установить соединение с вашим сервером и начать голосовое взаимодействие
+            // Пример использования WebSocket:
+
+            const socket = new WebSocket('wss://your-server-address'); // Замените на адрес вашего сервера
+
+            socket.addEventListener('open', function (event) {
+                updateStatus('Соединение установлено');
+                // Начинаем отправлять и получать аудио данные
+                // Реализуйте логику захвата аудио с микрофона и отправки на сервер
+            });
+
+            socket.addEventListener('message', function (event) {
+                // Обрабатываем полученные данные от сервера
+                // Например, воспроизводим аудио ответ от ассистента
+                // Или обновляем статус и выводим ошибки
+            });
+
+            socket.addEventListener('error', function (event) {
+                updateStatus('Ошибка соединения');
+                console.error('WebSocket error:', event);
+            });
+
+            socket.addEventListener('close', function (event) {
+                updateStatus('Соединение закрыто');
+                console.log('WebSocket closed:', event);
+            });
+        }
+
+        // Устанавливаем начальный статус
+        updateStatus('Нажмите, чтобы начать');
+
     </script>
 </body>
 </html>
