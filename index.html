@@ -36,7 +36,7 @@
 </head>
 <body>
     <!-- Кнопка для голосового взаимодействия -->
-    <button id="voiceButton">Подключение...</button>
+    <button id="voiceButton">Нажмите, чтобы начать</button>
 
     <!-- Подключаем Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -110,7 +110,7 @@
 
                 // Если найдены морф-таргеты, запускаем анимацию мимики
                 if (morphTargets.length > 0) {
-                    animateMorphTargets();
+                    // animateMorphTargets(); // Отключено, так как мы будем управлять мимикой по аудио
                 } else {
                     console.warn('Морф-таргеты не найдены в модели.');
                 }
@@ -122,29 +122,6 @@
                 console.error('Ошибка при загрузке модели:', error);
             }
         );
-
-        // Функция для анимации мимики
-        function animateMorphTargets() {
-            const speed = 0.05; // Скорость изменения морф-таргетов для мимики
-
-            function updateMorphTargets() {
-                requestAnimationFrame(updateMorphTargets);
-
-                morphTargets.forEach(mesh => {
-                    if (mesh.morphTargetInfluences) {
-                        // Изменение значения морф-таргета для мимики
-                        for (let i = 0; i < mesh.morphTargetInfluences.length; i++) {
-                            mesh.morphTargetInfluences[i] += speed;
-                            if (mesh.morphTargetInfluences[i] > 1) {
-                                mesh.morphTargetInfluences[i] = 0; // Сброс значения для цикличной анимации
-                            }
-                        }
-                    }
-                });
-            }
-
-            updateMorphTargets();
-        }
 
         // Часы для отслеживания времени анимации
         const clock = new THREE.Clock();
@@ -172,14 +149,14 @@
         // *** Добавляем функционал кнопки и голосового взаимодействия ***
 
         // Переменная для состояния и кнопки
-        let connectionStatus = 'Подключение...';
+        let connectionStatus = 'Нажмите, чтобы начать';
         const voiceButton = document.getElementById('voiceButton');
         voiceButton.innerText = connectionStatus;
 
         // Функция для обновления статуса на кнопке
         function updateStatus(status) {
             connectionStatus = status;
-            voiceButton.innerText = connectionStatus;
+            voiceButton.innerText = status;
         }
 
         // Обработчик события нажатия на кнопку
@@ -189,40 +166,121 @@
         });
 
         // Функция для установления связи с сервером и начала голосового взаимодействия
-        function startVoiceInteraction() {
-            // Обновляем статус
-            updateStatus('Подключаюсь к серверу...');
+function startVoiceInteraction() {
+    // Обновляем статус
+    updateStatus('Подключаюсь к серверу...');
 
-            // Здесь нужно установить соединение с вашим сервером и начать голосовое взаимодействие
-            // Пример использования WebSocket:
+    // Подключаемся к локальному серверу
+    const socket = new WebSocket('ws://localhost:8765'); // Используйте тот же порт, что и на сервере
 
-            const socket = new WebSocket('wss://your-server-address'); // Замените на адрес вашего сервера
+    let mediaRecorder;
 
-            socket.addEventListener('open', function (event) {
-                updateStatus('Соединение установлено');
-                // Начинаем отправлять и получать аудио данные
-                // Реализуйте логику захвата аудио с микрофона и отправки на сервер
+    socket.addEventListener('open', function (event) {
+        updateStatus('Соединение установлено');
+
+        // Захватываем аудио с микрофона
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function (stream) {
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/ogg; codecs=opus' });
+
+                mediaRecorder.ondataavailable = function (event) {
+                    if (event.data.size > 0) {
+                        // Читаем аудио-данные как Blob
+                        const reader = new FileReader();
+                        reader.onload = function () {
+                            const arrayBuffer = reader.result;
+                            // Конвертируем аудио-данные в Base64
+                            const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+                            // Отправляем аудио-данные на сервер
+                            socket.send(JSON.stringify({
+                                type: 'audio',
+                                audio: base64Audio
+                            }));
+                        };
+                        reader.readAsArrayBuffer(event.data);
+                    }
+                };
+
+                mediaRecorder.start(250); // Отправляем аудио-данные каждые 250 мс
+
+                updateStatus('Говорите...');
+
+                // Останавливаем запись через определенное время или по событию
+                setTimeout(() => {
+                    mediaRecorder.stop();
+
+                    // Сообщаем серверу об окончании аудио
+                    socket.send(JSON.stringify({
+                        type: 'audio_end'
+                    }));
+                }, 5000); // Останавливаем запись через 5 секунд
+            })
+            .catch(function (err) {
+                console.error('Ошибка доступа к микрофону:', err);
+                updateStatus('Ошибка доступа к микрофону');
             });
+    });
 
-            socket.addEventListener('message', function (event) {
-                // Обрабатываем полученные данные от сервера
-                // Например, воспроизводим аудио ответ от ассистента
-                // Или обновляем статус и выводим ошибки
-            });
+    socket.addEventListener('message', function (event) {
+        const data = JSON.parse(event.data);
 
-            socket.addEventListener('error', function (event) {
-                updateStatus('Ошибка соединения');
-                console.error('WebSocket error:', event);
-            });
+        if (data.type === 'audio') {
+            // Получаем аудио-данные от сервера и воспроизводим их
+            const base64Audio = data.audio;
+            const audioData = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
 
-            socket.addEventListener('close', function (event) {
-                updateStatus('Соединение закрыто');
-                console.log('WebSocket closed:', event);
+            const audioBlob = new Blob([audioData.buffer], { type: 'audio/ogg; codecs=opus' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+
+            // Дополнительно: управление мимикой по аудио (если требуется)
+            // animateMorphTargets();
+        } else if (data.type === 'text') {
+            // Отображаем текстовые данные при необходимости
+            console.log('Ассистент:', data.text);
+        } else if (data.type === 'response_done') {
+            // Обновляем статус при завершении ответа
+            updateStatus('Нажмите, чтобы говорить');
+        }
+    });
+
+    socket.addEventListener('error', function (event) {
+        updateStatus('Ошибка соединения');
+        console.error('WebSocket error:', event);
+    });
+
+    socket.addEventListener('close', function (event) {
+        updateStatus('Соединение закрыто');
+        console.log('WebSocket closed:', event);
+    });
+}
+
+
+        // Функция для анимации мимики по аудио
+        function animateMorphTargets() {
+            if (morphTargets.length === 0) return;
+
+            // Здесь вы можете реализовать анимацию морф-таргетов в зависимости от аудио
+            // Например, открывать и закрывать рот при воспроизведении аудио
+
+            // Пример простого открытия рта
+            morphTargets.forEach(mesh => {
+                if (mesh.morphTargetDictionary && mesh.morphTargetInfluences) {
+                    const mouthOpenIndex = mesh.morphTargetDictionary['mouthOpen'];
+                    if (typeof mouthOpenIndex !== 'undefined') {
+                        // Устанавливаем влияние морф-таргета на 1 (максимум)
+                        mesh.morphTargetInfluences[mouthOpenIndex] = 1;
+
+                        // После короткой задержки закрываем рот
+                        setTimeout(() => {
+                            mesh.morphTargetInfluences[mouthOpenIndex] = 0;
+                        }, 500); // Закрываем рот через 500 мс
+                    }
+                }
             });
         }
-
-        // Устанавливаем начальный статус
-        updateStatus('Нажмите, чтобы начать');
 
     </script>
 </body>
